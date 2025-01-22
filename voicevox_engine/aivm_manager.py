@@ -581,20 +581,26 @@ class AivmManager:
         """
 
         # AIVMX ファイルからから AIVM メタデータを取得
+        extension = "aivmx"
         try:
             aivm_metadata = aivmlib.read_aivmx_metadata(file)
             aivm_manifest = aivm_metadata.manifest
         except aivmlib.AivmValidationError as ex:
-            logger.error(f"AIVMX file is invalid:", exc_info=ex)
-            raise HTTPException(
-                status_code=422,
-                detail=f"指定された AIVMX ファイルの形式が正しくありません。({ex})",
-            )
+            try:
+                aivm_metadata = aivmlib.read_aivm_metadata(file)
+                aivm_manifest = aivm_metadata.manifest
+                extension = "aivm"
+            except aivmlib.AivmValidationError as ex:
+                logger.error(f"AIVMX file is invalid:", exc_info=ex)
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"指定された AIVMX ファイルの形式が正しくありません。({ex})",
+                )
 
         # すでに同一 UUID のファイルがインストール済みの場合、同じファイルを更新する
         ## 手動で .aivmx ファイルをインストール先ディレクトリにコピーしていた (ファイル名が UUID と一致しない) 場合も更新できるよう、
         ## この場合のみ特別に更新先ファイル名を現在保存されているファイル名に変更する
-        aivm_file_path = self.installed_aivm_dir / f"{aivm_manifest.uuid}.aivmx"
+        aivm_file_path = self.installed_aivm_dir / f"{aivm_manifest.uuid}.{extension}"
         if str(aivm_manifest.uuid) in self.get_installed_aivm_infos():
             logger.info(f"AIVM model {aivm_manifest.uuid} is already installed. Updating...")  # fmt: skip
             previous_aivm_info = self.get_installed_aivm_infos()[str(aivm_manifest.uuid)]  # fmt: skip
