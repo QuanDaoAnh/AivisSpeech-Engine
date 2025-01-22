@@ -105,6 +105,7 @@ style-bert-vits2 = { git = "https://github.com/tsukumijima/Style-Bert-VITS2", re
 onnxruntime = "^1.20.0"
 onnxruntime-directml = { version = "^1.20.0", markers = "sys_platform == 'win32' and (platform_machine == 'x86_64' or platform_machine == 'AMD64')" }
 onnxruntime-gpu = { version = "^1.20.0", markers = "sys_platform == 'linux' and platform_machine == 'x86_64'" }
+torch = "2.3.1"
 
 [tool.poetry.group.dev.dependencies]
 pysen = "^0.11.0"

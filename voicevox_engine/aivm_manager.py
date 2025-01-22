@@ -259,7 +259,7 @@ class AivmManager:
             return self._installed_aivm_infos
 
         # AIVMX ファイルのインストール先ディレクトリ内に配置されている .aivmx ファイルのパスを取得
-        aivm_file_paths = glob.glob(str(self.installed_aivm_dir / "*.aivmx"))
+        aivm_file_paths = glob.glob(str(self.installed_aivm_dir / "*.aivmx")) + glob.glob(str(self.installed_aivm_dir / "*.aivm"))
 
         # 各 AIVMX ファイルごとに
         aivm_infos: dict[str, AivmInfo] = {}
@@ -277,7 +277,10 @@ class AivmManager:
             # AIVM メタデータの読み込み
             try:
                 with open(aivm_file_path, mode="rb") as f:
-                    aivm_metadata = aivmlib.read_aivmx_metadata(f)
+                    if aivm_file_path.suffix == ".aivmx":
+                        aivm_metadata = aivmlib.read_aivmx_metadata(f)
+                    else:
+                        aivm_metadata = aivmlib.read_aivm_metadata(f)
                     aivm_manifest = aivm_metadata.manifest
             except aivmlib.AivmValidationError as ex:
                 logger.warning(

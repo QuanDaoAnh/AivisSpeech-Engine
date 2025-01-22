@@ -10,6 +10,7 @@ from typing import Any, Final, Sequence, cast
 
 import aivmlib
 import jaconv
+import torch
 import numpy as np
 import onnxruntime
 from fastapi import HTTPException
@@ -21,7 +22,7 @@ from style_bert_vits2.constants import (
 )
 from style_bert_vits2.logging import logger as style_bert_vits2_logger
 from style_bert_vits2.models.hyper_parameters import HyperParameters
-from style_bert_vits2.nlp import onnx_bert_models
+from style_bert_vits2.nlp import onnx_bert_models, bert_models
 from style_bert_vits2.nlp.japanese.g2p import g2p
 from style_bert_vits2.nlp.japanese.g2p_utils import g2kata_tone, kata_tone2phone_tone
 from style_bert_vits2.nlp.japanese.mora_list import (
@@ -166,6 +167,16 @@ class StyleBertVITS2TTSEngine(TTSEngine):
             cache_dir=str(self.BERT_MODEL_CACHE_DIR),
             revision="d701ec67708287b20d2063270f6b535e6eed09ab",
         )
+        bert_models.load_model(
+            language=Languages.JP,
+            pretrained_model_name_or_path="ku-nlp/deberta-v2-large-japanese-char-wwm",
+            cache_dir=str(self.BERT_MODEL_CACHE_DIR)
+        )
+        bert_models.load_tokenizer(
+            language=Languages.JP,
+            pretrained_model_name_or_path="ku-nlp/deberta-v2-large-japanese-char-wwm",
+            cache_dir=str(self.BERT_MODEL_CACHE_DIR)
+        )
         logger.info(
             f"BERT model and tokenizer loaded. ({time.time() - start_time:.2f}s)"
         )
@@ -224,9 +235,14 @@ class StyleBertVITS2TTSEngine(TTSEngine):
 
         # AIVM メタデータを読み込む
         aivm_info = self.aivm_manager.get_aivm_info(aivm_uuid)
+        is_onnx = True
         try:
             with open(aivm_info.file_path, mode="rb") as f:
-                aivm_metadata = aivmlib.read_aivmx_metadata(f)
+                if aivm_info.file_path.suffix == ".aivmx":
+                    aivm_metadata = aivmlib.read_aivmx_metadata(f)
+                else:
+                    aivm_metadata = aivmlib.read_aivm_metadata(f)
+                    is_onnx = False
         except aivmlib.AivmValidationError as e:
             logger.error(f"{aivm_info.file_path}: Failed to read AIVM metadata. ({e})")
             raise HTTPException(
@@ -243,17 +259,28 @@ class StyleBertVITS2TTSEngine(TTSEngine):
         assert aivm_metadata.style_vectors is not None
         style_vectors = np.load(BytesIO(aivm_metadata.style_vectors))
 
-        # 音声合成モデルをロード
-        tts_model = TTSModel(
-            # 音声合成モデルのパスとして、AIVMX ファイル (ONNX 互換) のパスを指定
-            model_path=aivm_info.file_path,
-            # config_path とあるが、HyperParameters の Pydantic モデルを直接指定できる
-            config_path=hyper_parameters,
-            # style_vec_path とあるが、style_vectors の NDArray を直接指定できる
-            style_vec_path=style_vectors,
-            # ONNX 推論で利用する ExecutionProvider を指定
-            onnx_providers=self.onnx_providers,
-        )  # fmt: skip
+        if is_onnx:
+            # 音声合成モデルをロード
+            tts_model = TTSModel(
+                # 音声合成モデルのパスとして、AIVMX ファイル (ONNX 互換) のパスを指定
+                model_path=aivm_info.file_path,
+                # config_path とあるが、HyperParameters の Pydantic モデルを直接指定できる
+                config_path=hyper_parameters,
+                # style_vec_path とあるが、style_vectors の NDArray を直接指定できる
+                style_vec_path=style_vectors,
+                # ONNX 推論で利用する ExecutionProvider を指定
+                onnx_providers=self.onnx_providers,
+            )  # fmt: skip
+        else:
+            tts_model = TTSModel(
+                # 音声合成モデルのパスとして、AIVMX ファイル (ONNX 互換) のパスを指定
+                model_path=aivm_info.file_path,
+                # config_path とあるが、HyperParameters の Pydantic モデルを直接指定できる
+                config_path=hyper_parameters,
+                # style_vec_path とあるが、style_vectors の NDArray を直接指定できる
+                style_vec_path=style_vectors,
+                device="cuda" if torch.cuda.is_available() else "cpu"
+            )  # fmt: skip
         start_time = time.time()
         logger.info(f"Loading {aivm_info.manifest.name} ({aivm_uuid}) ...")
         tts_model.load()
