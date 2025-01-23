@@ -259,6 +259,57 @@ def generate_tts_pipeline_router(
         return engine.update_pitch(accent_phrases, style_id)
 
     @router.post(
+        "/synthesis-text",
+        response_class=Response,
+        responses={
+            200: {
+                "content": {
+                    "audio/wav": {"schema": {"type": "string", "format": "binary"}}
+                },
+            }
+        },
+        tags=["音声合成"],
+        summary="音声合成する",
+    )
+    def synthesis_from_text(
+        text: str,
+        style_id: Annotated[StyleId, Query(alias="speaker")],
+        core_version: Annotated[
+            str | SkipJsonSchema[None],
+            Query(description="AivisSpeech Engine ではサポートされていないパラメータです (常に無視されます) 。"),
+        ] = None,  # fmt: skip # noqa
+    ) -> Response:
+        """
+        指定されたスタイル ID に紐づく音声合成モデルを用いて音声合成を行います。
+        """
+        version = core_version or LATEST_VERSION
+        engine = tts_engines.get_engine(version)
+        query = AudioQuery(
+            accent_phrases=[],
+            speedScale=1.0,
+            intonationScale=1.0,
+            tempoDynamicsScale=1.0,
+            pitchScale=0.0,
+            volumeScale=1.0,
+            prePhonemeLength=0.1,
+            postPhonemeLength=0.1,
+            pauseLength=None,
+            pauseLengthScale=1,
+            outputSamplingRate=engine.default_sampling_rate,
+            outputStereo=False,
+            # kana=create_kana(accent_phrases),
+            kana=text,  # AivisSpeech Engine では音声合成時に読み上げテキストも必要なため、kana に読み上げテキストをそのまま入れて返す
+        )
+        wave = engine.synthesize_wave_without_accent_phrases(
+            query, style_id
+        )
+        buffer = io.BytesIO()
+        soundfile.write(
+            file=buffer, data=wave, samplerate=query.outputSamplingRate, format="WAV"
+        )
+        return Response(buffer.getvalue(), media_type="audio/wav")
+    
+    @router.post(
         "/synthesis",
         response_class=Response,
         responses={

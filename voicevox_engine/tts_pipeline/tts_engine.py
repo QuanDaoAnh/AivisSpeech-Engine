@@ -573,6 +573,13 @@ class TTSEngine:
         accent_phrases = self.update_length_and_pitch(accent_phrases, style_id)
         return accent_phrases
 
+    def synthesize_wave_without_accent_phrases(
+        self, 
+        query: AudioQuery,
+        style_id: StyleId
+    ) -> NDArray[np.float32]:
+        return self.synthesize_wave(query, style_id)
+
     def synthesize_wave(
         self,
         query: AudioQuery,

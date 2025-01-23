@@ -543,6 +543,154 @@ class StyleBertVITS2TTSEngine(TTSEngine):
 
         # すでに API リクエストで何らかの値が設定されている可能性もあるため、変更せずにそのまま返す
         return accent_phrases
+    
+
+    def synthesize_wave_without_accent_phrases(
+        self,
+        query: AudioQuery,
+        style_id: StyleId,
+    ) -> NDArray[np.float32]:
+        """
+        音声合成用のクエリに含まれる読み仮名に基づいて Style-Bert-VITS2 で音声波形を生成する
+        継承元の TTSEngine.synthesize_wave() をオーバーライドし、Style-Bert-VITS2 用の音声合成処理に差し替えている
+
+        Parameters
+        ----------
+        query : AudioQuery
+            音声合成用のクエリ
+        style_id : StyleId
+            スタイル ID
+
+        Returns
+        -------
+        NDArray[np.float32]
+            生成された音声波形 (float32 型)
+        """
+
+        query = copy.deepcopy(query)
+        text = ""
+        if query.kana is not None and query.kana != "":
+            text = query.kana.strip()  # 事前に前後の空白を削除
+        if len(text) == 0:
+            logger.error("AudioQuery.kana is not specified.")  # fmt: skip
+            raise HTTPException(status_code=422, detail="AudioQuery.kana is not specified.")
+
+
+        # スタイル ID に対応する AivmManifest, AivmManifestSpeaker, AivmManifestSpeakerStyle を取得
+        result = self.aivm_manager.get_aivm_manifest_from_style_id(style_id)
+        aivm_manifest = result[0]
+        aivm_manifest_speaker = result[1]
+        aivm_manifest_speaker_style = result[2]
+
+        # 音声合成モデルをロード (初回のみ)
+        model = self.load_model(str(aivm_manifest.uuid))
+        logger.info(f"Model: {aivm_manifest.name} / Version {aivm_manifest.version}")  # fmt: skip
+        logger.info(f"Speaker: {aivm_manifest_speaker.name} / Style: {aivm_manifest_speaker_style.name}")  # fmt: skip
+
+        # ローカルな話者 ID・スタイル ID を取得
+        ## 現在の Style-Bert-VITS2 の API ではスタイル ID ではなくスタイル名を指定する必要があるため、
+        ## 別途 local_style_id に対応するスタイル名をハイパーパラメータから取得している
+        ## AIVM マニフェスト記載のスタイル名とハイパーパラメータのスタイル名は必ずしも一致しないため (通常一致するはずだが…) 、
+        ## 万が一に備え AIVM マニフェストとハイパーパラメータで共通のスタイル ID からスタイル名を取得する
+        local_speaker_id: int = aivm_manifest_speaker.local_id
+        local_style_id: int = aivm_manifest_speaker_style.local_id
+        local_style_name: str | None = None
+        for hps_style_name, hps_style_id in model.hyper_parameters.data.style2id.items():  # fmt: skip
+            if hps_style_id == local_style_id:
+                local_style_name = hps_style_name
+                break
+        if local_style_name is None:
+            raise ValueError(f"Style ID {local_style_id} not found in hyper parameters.")  # fmt: skip
+
+        # 話速
+        ## ref: https://github.com/litagin02/Style-Bert-VITS2/blob/2.4.1/server_editor.py#L314
+        length = 1 / max(0.0, query.speedScale)
+
+        # スタイルの強さ
+        ## VOICEVOX では「抑揚」の比率だが、AivisSpeech では声のテンポの緩急を指定する値としている
+        ## intonationScale の基準は 1.0 (0 ~ 2) なので、DEFAULT_STYLE_WEIGHT を基準とした 0 ~ 10 の範囲に変換する
+        if 0.0 <= query.intonationScale <= 1.0:
+            style_weight = query.intonationScale * DEFAULT_STYLE_WEIGHT
+        elif 1.0 < query.intonationScale <= 2.0:
+            style_weight = (
+                DEFAULT_STYLE_WEIGHT
+                + (query.intonationScale - 1.0) * (10.0 - DEFAULT_STYLE_WEIGHT) / 1.0
+            )
+        else:
+            style_weight = DEFAULT_STYLE_WEIGHT
+
+        # テンポの緩急 (SDP Ratio)
+        ## Style-Bert-VITS2 にも一応「抑揚」パラメータはあるが、pyworld で変換している関係で明確に音質が劣化する上、あまり効果がない
+        ## tempoDynamicsScale の基準は 1.0 (0 ~ 2) なので、DEFAULT_SDP_RATIO を基準とした 0 ~ 1 の範囲に変換する
+        if 0.0 <= query.tempoDynamicsScale <= 1.0:
+            sdp_ratio = query.tempoDynamicsScale * DEFAULT_SDP_RATIO
+        elif 1.0 < query.tempoDynamicsScale <= 2.0:
+            sdp_ratio = (
+                DEFAULT_SDP_RATIO
+                + (query.tempoDynamicsScale - 1.0) * (1.0 - DEFAULT_SDP_RATIO) / 1.0
+            )
+        else:
+            sdp_ratio = DEFAULT_SDP_RATIO
+
+        # ピッチ
+        ## 0.0 以外を指定すると音質が劣化するので基本使わない
+        ## pitchScale の基準は 0.0 (-1 ~ 1) なので、1.0 を基準とした 0 ~ 2 の範囲に変換する
+        pitch_scale = max(0.0, 1.0 + query.pitchScale)
+
+        # 音声合成を実行
+        ## 出力音声は int16 型の NDArray で返される
+        ## 推論処理を大量に並列実行すると最悪プロセスごと ONNX Runtime がクラッシュするため、排他ロックを掛ける
+        with self._inference_lock:
+            logger.info("Running inference...")
+            logger.info(f"Text: {text}")
+            logger.info(f"         Speed: {length:.2f} (Input: {query.speedScale:.2f})")
+            logger.info(f"  Style Weight: {style_weight:.2f} (Input: {query.intonationScale:.2f})")  # fmt: skip
+            logger.info(f"Tempo Dynamics: {sdp_ratio:.2f} (Input: {query.tempoDynamicsScale:.2f})")  # fmt: skip
+            logger.info(f"         Pitch: {pitch_scale:.2f} (Input: {query.pitchScale:.2f})")  # fmt: skip
+            logger.info(f"        Volume: {query.volumeScale:.2f}")
+            logger.info(f"   Pre-Silence: {query.prePhonemeLength:.2f}")
+            logger.info(f"  Post-Silence: {query.postPhonemeLength:.2f}")
+
+            # テキストが空文字列ではなく、given_phone_list / given_tone_list が空でない場合のみ音声合成を実行
+            if text != "":
+                start_time = time.time()
+                raw_sample_rate, raw_wave = model.infer(
+                    text=text,
+                    language=Languages.JP,
+                    speaker_id=local_speaker_id,
+                    style=local_style_name,
+                    style_weight=style_weight,
+                    sdp_ratio=sdp_ratio,
+                    length=length,
+                    pitch_scale=pitch_scale,
+                    line_split=True,
+                )
+                logger.info("Inference done. Elapsed time: {:.2f} sec.".format(time.time() - start_time))  # fmt: skip
+
+            # 空文字列が入力された場合、0.5 秒の無音波形を後続の処理に渡す
+            else:
+                logger.info("Text is empty. Returning 0.5 sec silence.")
+                raw_sample_rate = self.default_sampling_rate
+                raw_wave = np.zeros(int(self.default_sampling_rate * 0.5), dtype=np.float32)  # fmt: skip
+
+        # VOICEVOX CORE は float32 型の音声波形を返すため、int16 から float32 に変換して VOICEVOX CORE に合わせる
+        ## float32 に変換する際に -1.0 ~ 1.0 の範囲に正規化する
+        raw_wave = raw_wave.astype(np.float32) / 32768.0
+
+        # 学習元データなどの関係でモデルによっては音声の前後に無音が含まれることがあるため、後処理前に前後の無音をトリミングする
+        ## この処理を行ってから再度指定秒数の無音区間を追加することで、無音区間が指定以上に長くなるのを防ぐ
+        raw_wave = trim_silence(raw_wave)
+
+        # 前後の無音区間を追加
+        pre_silence_length = int(raw_sample_rate * query.prePhonemeLength)
+        post_silence_length = int(raw_sample_rate * query.postPhonemeLength)
+        silence_wave_pre = np.zeros(pre_silence_length, dtype=np.float32)
+        silence_wave_post = np.zeros(post_silence_length, dtype=np.float32)
+        raw_wave = np.concatenate((silence_wave_pre, raw_wave, silence_wave_post))
+
+        # 生成した音声の音量調整/サンプルレート変更/ステレオ化を行ってから返す
+        wave = raw_wave_to_output_wave(query, raw_wave, raw_sample_rate)
+        return wave
 
     def synthesize_wave(
         self,
