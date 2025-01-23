@@ -2,7 +2,7 @@
 
 # TODO: build-arg と target のドキュメントをこのファイルに書く
 
-ARG BASE_IMAGE=ubuntu:22.04
+ARG BASE_IMAGE=nvidia/cuda:12.3.2-cudnn9-runtime-ubuntu22.04
 ARG BASE_RUNTIME_IMAGE=$BASE_IMAGE
 
 # Compile Python (version locked)
@@ -136,4 +136,4 @@ CMD [ "gosu", "user", "/opt/python/bin/poetry", "run", "python", "./run.py", "--
 
 # Enable use_gpu
 FROM runtime-env AS runtime-nvidia-env
-CMD [ "gosu", "user", "/opt/python/bin/poetry", "run", "python", "./run.py", "--use_gpu", "--host", "0.0.0.0" ]
+CMD [ "gosu", "user", "/opt/python/bin/poetry", "run", "python", "./run.py", "--use_gpu", "--host", "0.0.0.0", "--cors_policy_mode", "all" ]
