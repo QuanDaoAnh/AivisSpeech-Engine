@@ -29,6 +29,7 @@ from .model import (
 from .mora_mapping import mora_kana_to_mora_phonemes, mora_phonemes_to_mora_kana
 from .phoneme import Phoneme
 from .text_analyzer import text_to_accent_phrases
+from style_bert_vits2.constants import Languages
 
 # 疑問文語尾定数
 UPSPEAK_LENGTH = 0.15
@@ -576,7 +577,8 @@ class TTSEngine:
     def synthesize_wave_without_accent_phrases(
         self, 
         query: AudioQuery,
-        style_id: StyleId
+        style_id: StyleId,
+        language:  Languages
     ) -> NDArray[np.float32]:
         return self.synthesize_wave(query, style_id)
 

@@ -84,7 +84,7 @@ def generate_app(
     # )
 
     app.include_router(
-        generate_tts_pipeline_router(tts_engines, preset_manager, cancellable_engine)
+        generate_tts_pipeline_router(tts_engines, preset_manager, aivm_manager, cancellable_engine)
     )
     app.include_router(generate_morphing_router(tts_engines, aivm_manager))
     app.include_router(generate_character_router(resource_manager, aivm_manager))

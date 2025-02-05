@@ -140,6 +140,17 @@ class AivmManager:
         # 話者名でソートしてから返す
         return sorted(speakers, key=lambda x: x.name)
 
+    def get_style_id_from_model_name(self, model_name: str) -> StyleId:
+        aivm_infos = self.get_installed_aivm_infos()
+        for aivm_info in aivm_infos.values():
+            for aivm_info_speaker in aivm_info.speakers:
+                if aivm_info_speaker.speaker.name == model_name:
+                    return aivm_info.speakers[0].speaker.styles[0].id
+        raise HTTPException(
+            status_code=500,
+            detail="model_name does not exist"
+        )
+
     def get_speaker_info(self, speaker_uuid: str) -> SpeakerInfo:
         """
         インストール済み音声合成モデル内の話者の追加情報を取得する

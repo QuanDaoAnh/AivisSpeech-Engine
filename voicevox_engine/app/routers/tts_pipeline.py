@@ -29,7 +29,9 @@ from voicevox_engine.tts_pipeline.model import (
     ParseKanaErrorCode,
     Score,
 )
+from voicevox_engine.aivm_manager import AivmManager
 from voicevox_engine.tts_pipeline.tts_engine import LATEST_VERSION, TTSEngineManager
+from style_bert_vits2.constants import Languages
 
 
 class ParseKanaBadRequest(BaseModel):
@@ -74,6 +76,7 @@ class SupportedDevicesInfo(BaseModel):
 def generate_tts_pipeline_router(
     tts_engines: TTSEngineManager,
     preset_manager: PresetManager,
+    aivm_manager: AivmManager,
     cancellable_engine: CancellableEngine | None,
 ) -> APIRouter:
     """音声合成 API Router を生成する"""
@@ -273,7 +276,8 @@ def generate_tts_pipeline_router(
     )
     def synthesis_from_text(
         text: str,
-        style_id: Annotated[StyleId, Query(alias="speaker")],
+        model_name: str,
+        language: Annotated[Languages, Query(description="textの言語")] = Languages.JP,
         core_version: Annotated[
             str | SkipJsonSchema[None],
             Query(description="AivisSpeech Engine ではサポートされていないパラメータです (常に無視されます) 。"),
@@ -300,8 +304,9 @@ def generate_tts_pipeline_router(
             # kana=create_kana(accent_phrases),
             kana=text,  # AivisSpeech Engine では音声合成時に読み上げテキストも必要なため、kana に読み上げテキストをそのまま入れて返す
         )
+        style_id = aivm_manager.get_style_id_from_model_name(model_name)
         wave = engine.synthesize_wave_without_accent_phrases(
-            query, style_id
+            query, style_id, language
         )
         buffer = io.BytesIO()
         soundfile.write(
