@@ -205,7 +205,7 @@ class StyleBertVITS2TTSEngine(TTSEngine):
     BERT_MODEL_CACHE_DIR: Final[Path] = get_save_dir() / "BertModelCaches"
 
     # ONNX Runtime の推論処理を排他制御するためのロック
-    _inference_lock: Final[threading.Lock] = threading.Lock()
+    _inference_lock: Final[threading.Semaphore] = threading.Semaphore(8)
 
     def __init__(
         self,

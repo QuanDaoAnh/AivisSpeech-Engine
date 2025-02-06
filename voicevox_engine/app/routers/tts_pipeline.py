@@ -278,6 +278,7 @@ def generate_tts_pipeline_router(
         text: str,
         model_name: str,
         language: Annotated[Languages, Query(description="textの言語")] = Languages.JP,
+        length: Annotated[float, Query(description="話速。基準は1で大きくするほど音声は長くなり読み上げが遅まる")] = 1.0,
         core_version: Annotated[
             str | SkipJsonSchema[None],
             Query(description="AivisSpeech Engine ではサポートされていないパラメータです (常に無視されます) 。"),
@@ -288,9 +289,11 @@ def generate_tts_pipeline_router(
         """
         version = core_version or LATEST_VERSION
         engine = tts_engines.get_engine(version)
+        if length <= 0.1:
+            length = 1.0
         query = AudioQuery(
             accent_phrases=[],
-            speedScale=1.0,
+            speedScale=1/length,
             intonationScale=1.0,
             tempoDynamicsScale=1.0,
             pitchScale=0.0,
