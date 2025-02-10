@@ -2,6 +2,7 @@
 
 import io
 import zipfile
+import torch
 from typing import Annotated, Self
 
 import soundfile
@@ -308,9 +309,17 @@ def generate_tts_pipeline_router(
             kana=text,  # AivisSpeech Engine では音声合成時に読み上げテキストも必要なため、kana に読み上げテキストをそのまま入れて返す
         )
         style_id = aivm_manager.get_style_id_from_model_name(model_name)
-        wave = engine.synthesize_wave_without_accent_phrases(
-            query, style_id, language
-        )
+        wave = None
+        for _ in range(4):
+            try:
+                wave = engine.synthesize_wave_without_accent_phrases(
+                    query, style_id, language
+                )
+                break
+            except torch.cuda.OutOfMemoryError:
+                engine.unload_oldest_model()
+        if wave is None:
+            raise HTTPException(status_code=500, detail=f'Can not load model {model_name}')
         buffer = io.BytesIO()
         soundfile.write(
             file=buffer, data=wave, samplerate=query.outputSamplingRate, format="WAV"
@@ -703,4 +712,13 @@ def generate_tts_pipeline_router(
             raise HTTPException(status_code=422, detail="非対応の機能です。")
         return SupportedDevicesInfo.generate_from(supported_devices)
 
+    for i, speaker in enumerate(aivm_manager.get_speakers()):
+        model_name = speaker.name
+        synthesis_from_text(
+            text="音声合成モデルの推論デバイスを返します",
+            model_name=model_name,
+            language=Languages.JP
+        )
+        if i > 2:
+            break
     return router

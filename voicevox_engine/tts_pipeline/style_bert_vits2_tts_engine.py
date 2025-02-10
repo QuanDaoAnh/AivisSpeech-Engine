@@ -360,6 +360,7 @@ class StyleBertVITS2TTSEngine(TTSEngine):
         # VOICEVOX CORE の通常の CoreWrapper の代わりに MockCoreWrapper を利用する
         ## 継承元の TTSEngine は self._core に CoreWrapper を入れた CoreAdapter のインスタンスがないと動作しない
         self._core = CoreAdapter(MockCoreWrapper())
+        self.tts_model_used_time: dict[str, float] = {}
 
     @property
     def default_sampling_rate(self) -> int:
@@ -713,6 +714,19 @@ class StyleBertVITS2TTSEngine(TTSEngine):
         # すでに API リクエストで何らかの値が設定されている可能性もあるため、変更せずにそのまま返す
         return accent_phrases
     
+    def unload_oldest_model(self):
+        min_time = None
+        unload_uuid = ''
+        for key in self.tts_model_used_time:
+            if min_time is None or self.tts_model_used_time[key] < min_time:
+                min_time = self.tts_model_used_time[key]
+                unload_uuid = key
+        
+        if min_time is None:
+            raise HTTPException(status_code=500, detail="Can not find model to unload")
+        
+        self.unload_model(unload_uuid)
+        del self.tts_model_used_time[unload_uuid]
 
     def synthesize_wave_without_accent_phrases(
         self,
@@ -751,9 +765,11 @@ class StyleBertVITS2TTSEngine(TTSEngine):
         aivm_manifest = result[0]
         aivm_manifest_speaker = result[1]
         aivm_manifest_speaker_style = result[2]
+        aivm_uuid = str(aivm_manifest.uuid)
+        self.tts_model_used_time[aivm_uuid] = time.time()
 
         # 音声合成モデルをロード (初回のみ)
-        model = self.load_model(str(aivm_manifest.uuid))
+        model = self.load_model(aivm_uuid)
         logger.info(f"Model: {aivm_manifest.name} / Version {aivm_manifest.version}")  # fmt: skip
         logger.info(f"Speaker: {aivm_manifest_speaker.name} / Style: {aivm_manifest_speaker_style.name}")  # fmt: skip
 

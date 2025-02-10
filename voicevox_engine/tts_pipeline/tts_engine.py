@@ -574,6 +574,9 @@ class TTSEngine:
         accent_phrases = self.update_length_and_pitch(accent_phrases, style_id)
         return accent_phrases
 
+    def unload_oldest_model(self):
+        return
+
     def synthesize_wave_without_accent_phrases(
         self, 
         query: AudioQuery,
