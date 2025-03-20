@@ -411,7 +411,7 @@ class StyleBertVITS2TTSEngine(TTSEngine):
                 if aivm_info.file_path.suffix == ".aivmx":
                     aivm_metadata = aivmlib.read_aivmx_metadata(f)
                 else:
-                    aivm_metadata = aivmlib.read_aivm_metadata(f)
+                    aivm_metadata = AivmManager.read_aivm_metadata(f)
                     is_onnx = False
         except aivmlib.AivmValidationError as e:
             logger.error(f"{aivm_info.file_path}: Failed to read AIVM metadata. ({e})")

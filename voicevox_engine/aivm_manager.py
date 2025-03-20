@@ -247,7 +247,8 @@ class AivmManager:
             detail=f"スタイル {style_id} は存在しません。",
         )
 
-    def _read_aivm_metadata(self, aivm_file: BinaryIO) -> aivmlib.AivmMetadata:
+    @staticmethod
+    def read_aivm_metadata(aivm_file: BinaryIO) -> aivmlib.AivmMetadata:
         """
         AIVM ファイルから AIVM メタデータを読み込む
 
@@ -329,7 +330,7 @@ class AivmManager:
                     if aivm_file_path.suffix == ".aivmx":
                         aivm_metadata = aivmlib.read_aivmx_metadata(f)
                     else:
-                        aivm_metadata = self._read_aivm_metadata(f)
+                        aivm_metadata = AivmManager.read_aivm_metadata(f)
                     aivm_manifest = aivm_metadata.manifest
             except aivmlib.AivmValidationError as ex:
                 logger.warning(
