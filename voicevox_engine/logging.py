@@ -1,10 +1,10 @@
-# flake8: noqa
+# flake8: noqa: E266, B950
 
 import logging
 import logging.config
 from typing import Any
 
-from .utility.path_utility import get_save_dir
+from voicevox_engine.utility.path_utility import get_save_dir
 
 ENGINE_LOG_DIR = get_save_dir() / "Logs"
 ENGINE_LOG_PATH = ENGINE_LOG_DIR / "AivisSpeech-Engine.log"

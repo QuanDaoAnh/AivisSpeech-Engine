@@ -39,7 +39,7 @@ if sys.platform == 'win32':
 else:
     dataclasses_path = Path(base_prefix) / 'lib' / f'python{sys.version_info.major}.{sys.version_info.minor}' / 'dataclasses.py'
 try:
-    with dataclasses_path.open('a') as file:
+    with dataclasses_path.open(mode='a', encoding='utf-8') as file:
         file.write('\n__version__ = "1.0"')
     print(f'Added __version__ to {dataclasses_path}')
 except Exception as e:
@@ -101,7 +101,7 @@ coll = COLLECT(
 
 # ビルド時だけ追記した __version__ を削除
 try:
-    with open(dataclasses_path, 'r+') as file:
+    with dataclasses_path.open(mode='r+', encoding='utf-8') as file:
         content = file.read()
         content = re.sub(r'\n__version__ = "1\.0"', '', content)
         file.seek(0)

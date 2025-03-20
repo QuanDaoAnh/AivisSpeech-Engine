@@ -116,7 +116,7 @@ class LibraryManager:
             if library_dir.is_dir():
                 # ライブラリ情報の取得 from `library_root_dir / f"{library_uuid}" / "metas.json"`
                 library_uuid = os.path.basename(library_dir)
-                with open(library_dir / INFO_FILE, encoding="utf-8") as f:
+                with open(library_dir / INFO_FILE, mode="r", encoding="utf-8") as f:
                     info = json.load(f)
                 # アンインストール出来ないライブラリを作る場合、何かしらの条件でFalseを設定する
                 library[library_uuid] = InstalledLibraryInfo(**info, uninstallable=True)
@@ -149,7 +149,7 @@ class LibraryManager:
         library_dir.mkdir(exist_ok=True)
 
         # metas.jsonを生成する
-        with open(library_dir / INFO_FILE, "w", encoding="utf-8") as f:
+        with open(library_dir / INFO_FILE, mode="w", encoding="utf-8") as f:
             f.write(library_info)
 
         # ZIP 形式ではないファイルはライブラリでないためインストールを拒否する

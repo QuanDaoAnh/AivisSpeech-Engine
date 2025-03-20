@@ -1,4 +1,4 @@
-# flake8: noqa
+# flake8: noqa: E266, B950
 
 import copy
 import re
@@ -1005,9 +1005,9 @@ class StyleBertVITS2TTSEngine(TTSEngine):
         if local_style_name is None:
             raise ValueError(f"Style ID {local_style_id} not found in hyper parameters.")  # fmt: skip
 
-        # 話速
+        # 話速 (0.1を最小値として使用してゼロ除算を防止)
         ## ref: https://github.com/litagin02/Style-Bert-VITS2/blob/2.4.1/server_editor.py#L314
-        length = 1 / max(0.0, query.speedScale)
+        length = 1 / max(0.1, query.speedScale)
 
         # スタイルの強さ
         ## VOICEVOX では「抑揚」の比率だが、AivisSpeech では声のテンポの緩急を指定する値としている
@@ -1089,8 +1089,13 @@ class StyleBertVITS2TTSEngine(TTSEngine):
         raw_wave = trim_silence(raw_wave)
 
         # 前後の無音区間を追加
-        pre_silence_length = int(raw_sample_rate * query.prePhonemeLength)
-        post_silence_length = int(raw_sample_rate * query.postPhonemeLength)
+        ## VOICEVOX の TTSEngine との互換性のため、音声合成側と同様に AudioQuery の speedScale を加味する
+        pre_silence_length = int(
+            raw_sample_rate * query.prePhonemeLength / query.speedScale
+        )
+        post_silence_length = int(
+            raw_sample_rate * query.postPhonemeLength / query.speedScale
+        )
         silence_wave_pre = np.zeros(pre_silence_length, dtype=np.float32)
         silence_wave_post = np.zeros(post_silence_length, dtype=np.float32)
         raw_wave = np.concatenate((silence_wave_pre, raw_wave, silence_wave_post))
@@ -1198,7 +1203,7 @@ def _sep_kata_with_joshi2sep_phonemes_with_joshi(
         result: list[tuple[str | None, str]] = []
         spaced_moras = __MORA_PATTERN.sub(lambda m: mora2phonemes(m.group()), kana)
         # 長音記号「ー」の処理
-        long_replacement = lambda m: m.group(1) + (" " + m.group(1)) * len(m.group(2))  # type: ignore # fmt: skip
+        long_replacement = lambda m: m.group(1) + (" " + m.group(1)) * len(m.group(2))  # type: ignore  # noqa: E731
         spaced_moras = __LONG_PATTERN.sub(long_replacement, spaced_moras)
         moras = spaced_moras.strip().split(" ")
         # モーラごとに子音と母音に分割

@@ -9,7 +9,10 @@ from voicevox_engine.aivm_manager import AivmManager
 from voicevox_engine.app.dependencies import generate_mutability_allowed_verifier
 from voicevox_engine.app.global_exceptions import configure_global_exception_handlers
 from voicevox_engine.app.middlewares import configure_middlewares
-from voicevox_engine.app.openapi_schema import configure_openapi_schema
+from voicevox_engine.app.openapi_schema import (
+    configure_openapi_schema,
+    simplify_operation_ids,
+)
 from voicevox_engine.app.routers.aivm_models import generate_aivm_models_router
 from voicevox_engine.app.routers.character import generate_character_router
 from voicevox_engine.app.routers.engine_info import generate_engine_info_router
@@ -106,6 +109,7 @@ def generate_app(
     app.include_router(generate_engine_info_router(core_version_list, engine_manifest))
     app.include_router(generate_portal_page_router(engine_manifest.name))
 
+    app = simplify_operation_ids(app)
     app = configure_openapi_schema(
         app, engine_manifest.supported_features.manage_library
     )

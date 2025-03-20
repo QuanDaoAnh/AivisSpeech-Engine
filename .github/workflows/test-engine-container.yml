@@ -103,4 +103,4 @@ jobs:
           exit 1
 
       - name: <Test> Test ENGINE application docker container
-        run: poetry run python tools/check_release_build.py --skip_run_process --dist_dir dist/
+        run: poetry run python tools/check_release_build.py --skip_run_process --skip_check_manifest --dist_dir dist/

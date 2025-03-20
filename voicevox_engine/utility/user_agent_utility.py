@@ -35,35 +35,35 @@ def generate_user_agent(inference_type: Literal["CPU", "GPU"] = "CPU") -> str:
                 try:
                     wv = platform.win32_ver()
                     return f"Windows/{wv[1]}"
-                except Exception as e:
-                    logger.warning("Failed to get Windows version: %s", e)
+                except Exception as ex:
+                    logger.warning("Failed to get Windows version:", exc_info=ex)
                     return "Windows/Unknown"
             elif os_name == "Darwin":
                 try:
                     ver = platform.mac_ver()[0]
                     return f"macOS/{ver}" if ver else "macOS/Unknown"
-                except Exception as e:
-                    logger.warning("Failed to get macOS version: %s", e)
+                except Exception as ex:
+                    logger.warning("Failed to get macOS version:", exc_info=ex)
                     return "macOS/Unknown"
             elif os_name == "Linux":
                 try:
                     kernel = platform.release()
                     try:
-                        with open("/etc/os-release") as f:
+                        with open("/etc/os-release", mode="r", encoding="utf-8") as f:
                             lines = f.readlines()
                             for line in lines:
                                 if line.startswith("PRETTY_NAME="):
                                     distro = line.split("=")[1].strip().strip('"')
                                     return f"Linux/{distro} (Kernel: {kernel})"
-                    except Exception as e:
-                        logger.warning("Failed to read /etc/os-release: %s", e)
+                    except Exception as ex:
+                        logger.warning("Failed to read /etc/os-release:", exc_info=ex)
                         return f"Linux/{kernel}"
-                except Exception as e:
-                    logger.warning("Failed to get Linux kernel version: %s", e)
+                except Exception as ex:
+                    logger.warning("Failed to get Linux kernel version:", exc_info=ex)
                     return "Linux/Unknown"
             return f"{os_name}/Unknown"
-        except Exception as e:
-            logger.error("Failed to get OS information: %s", e)
+        except Exception as ex:
+            logger.error("Failed to get OS information:", exc_info=ex)
             return "OS/Unknown"
 
     def get_architecture() -> str:
@@ -73,8 +73,8 @@ def generate_user_agent(inference_type: Literal["CPU", "GPU"] = "CPU") -> str:
         """
         try:
             return platform.machine()
-        except Exception as e:
-            logger.error("Failed to get architecture information: %s", e)
+        except Exception as ex:
+            logger.error("Failed to get architecture information:", exc_info=ex)
             return "Unknown"
 
     def get_cpu_name() -> str:
@@ -85,8 +85,8 @@ def generate_user_agent(inference_type: Literal["CPU", "GPU"] = "CPU") -> str:
         try:
             cpu_info = get_cpu_info()
             return cpu_info.get("brand_raw", "Unknown")
-        except Exception as e:
-            logger.error("Failed to get CPU information: %s", e)
+        except Exception as ex:
+            logger.error("Failed to get CPU information:", exc_info=ex)
             return "Unknown"
 
     def get_gpu_names() -> list[str]:
@@ -105,20 +105,22 @@ def generate_user_agent(inference_type: Literal["CPU", "GPU"] = "CPU") -> str:
                     gpus = w.Win32_VideoController()
                     names = [gpu.Name for gpu in gpus if hasattr(gpu, "Name")]
                     return names if names else ["Unknown"]
-                except Exception as e:
-                    logger.warning("Failed to get Windows GPU information: %s", e)
+                except Exception as ex:
+                    logger.warning(
+                        "Failed to get Windows GPU information:", exc_info=ex
+                    )
                     return ["Unknown"]
             elif os_name == "Linux":
                 try:
                     gpus = GPUtil.getGPUs()
                     names = [gpu.name for gpu in gpus if hasattr(gpu, "name")]
                     return names if names else ["NoGPU"]
-                except Exception as e:
-                    logger.warning("Failed to get Linux GPU information: %s", e)
+                except Exception as ex:
+                    logger.warning("Failed to get Linux GPU information:", exc_info=ex)
                     return ["Unknown"]
             return ["Unknown"]
-        except Exception as e:
-            logger.error("Failed to get GPU information: %s", e)
+        except Exception as ex:
+            logger.error("Failed to get GPU information:", exc_info=ex)
             return ["Unknown"]
 
     def get_memory_info() -> tuple[float | None, float | None]:
@@ -131,8 +133,8 @@ def generate_user_agent(inference_type: Literal["CPU", "GPU"] = "CPU") -> str:
             total_gb = round(vm.total / (1024**3), 1)
             available_gb = round(vm.available / (1024**3), 1)
             return total_gb, available_gb
-        except Exception as e:
-            logger.error("Failed to get memory information: %s", e)
+        except Exception as ex:
+            logger.error("Failed to get memory information:", exc_info=ex)
             return None, None
 
     def is_docker() -> bool:
@@ -144,15 +146,15 @@ def generate_user_agent(inference_type: Literal["CPU", "GPU"] = "CPU") -> str:
             if os.path.exists("/.dockerenv"):
                 return True
             try:
-                with open("/proc/1/cgroup", "r") as f:
+                with open("/proc/1/cgroup", mode="r", encoding="utf-8") as f:
                     for line in f:
                         if "docker" in line or "kubepods" in line:
                             return True
-            except (FileNotFoundError, PermissionError) as e:
-                logger.debug("Docker check - could not read cgroup file: %s", e)
+            except (FileNotFoundError, PermissionError) as ex:
+                logger.debug("Docker check - could not read cgroup file:", exc_info=ex)
             return False
-        except Exception as e:
-            logger.error("Failed to check Docker environment: %s", e)
+        except Exception as ex:
+            logger.error("Failed to check Docker environment:", exc_info=ex)
             return False
 
     try:
@@ -193,9 +195,9 @@ def generate_user_agent(inference_type: Literal["CPU", "GPU"] = "CPU") -> str:
         __user_agent_cache = user_agent
         return user_agent
 
-    except Exception as e:
+    except Exception as ex:
         # 最悪の場合のフォールバック
-        logger.error("Failed to generate user agent string: %s", e)
+        logger.error("Failed to generate user agent string:", exc_info=ex)
         generic_user_agent = f"AivisSpeech-Engine/{__version__}"
         __user_agent_cache = generic_user_agent
         return generic_user_agent

@@ -47,7 +47,7 @@ def generate_aivm_models_router(
         dependencies=[Depends(verify_mutability)],
         summary="音声合成モデルをインストールする",
     )
-    def install_aivm(
+    def install_model(
         file: Annotated[
             UploadFile | None,
             File(description="AIVMX ファイル (`.aivmx`)"),
@@ -64,9 +64,9 @@ def generate_aivm_models_router(
         """
 
         if file is not None:
-            aivm_manager.install_aivm(file.file)
+            aivm_manager.install_model(file.file)
         elif url is not None:
-            aivm_manager.install_aivm_from_url(url)
+            aivm_manager.install_model_from_url(url)
         else:
             raise HTTPException(
                 status_code=422,
@@ -79,7 +79,7 @@ def generate_aivm_models_router(
         response_description="指定された音声合成モデルの情報",
     )
     def get_aivm_info(
-        aivm_uuid: Annotated[str, Path(description="音声合成モデルの UUID")]
+        aivm_uuid: Annotated[str, Path(description="音声合成モデルの UUID")],
     ) -> AivmInfo:
         """
         指定された音声合成モデルの情報を取得します。
@@ -92,7 +92,7 @@ def generate_aivm_models_router(
         status_code=204,
         summary="指定された音声合成モデルをロードする",
     )
-    def load_aivm(
+    def load_model(
         aivm_uuid: Annotated[str, Path(description="音声合成モデルの UUID")],
     ) -> None:
         """
@@ -114,7 +114,7 @@ def generate_aivm_models_router(
         status_code=204,
         summary="指定された音声合成モデルをアンロードする",
     )
-    def unload_aivm(
+    def unload_model(
         aivm_uuid: Annotated[str, Path(description="音声合成モデルの UUID")],
     ) -> None:
         """
@@ -135,7 +135,7 @@ def generate_aivm_models_router(
         status_code=204,
         summary="指定された音声合成モデルを更新する",
     )
-    def update_aivm(
+    def update_model(
         aivm_uuid: Annotated[str, Path(description="音声合成モデルの UUID")],
     ) -> None:
         """
@@ -143,7 +143,7 @@ def generate_aivm_models_router(
         インストール済みの音声合成モデルへ上書き更新します。
         """
 
-        aivm_manager.update_aivm(aivm_uuid)
+        aivm_manager.update_model(aivm_uuid)
 
     @router.delete(
         "/{aivm_uuid}/uninstall",
@@ -151,13 +151,13 @@ def generate_aivm_models_router(
         dependencies=[Depends(verify_mutability)],
         summary="指定された音声合成モデルをアンインストールする",
     )
-    def uninstall_aivm(
-        aivm_uuid: Annotated[str, Path(description="音声合成モデルの UUID")]
+    def uninstall_model(
+        aivm_uuid: Annotated[str, Path(description="音声合成モデルの UUID")],
     ) -> None:
         """
         指定された音声合成モデルをアンインストールします。
         """
 
-        aivm_manager.uninstall_aivm(aivm_uuid)
+        aivm_manager.uninstall_model(aivm_uuid)
 
     return router

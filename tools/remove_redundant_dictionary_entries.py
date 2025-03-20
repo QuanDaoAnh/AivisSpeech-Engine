@@ -2,7 +2,9 @@
 """
 Usage: python remove_redundant_dictionary_entries.py
 
-resources/dictionaries ディレクトリにある辞書データのうち、pyopenjtalk デフォルト辞書で得られる読みと一致する単語を削除するツール。
+resources/dictionaries ディレクトリにある辞書データのうち、内蔵辞書のみ適用させた pyopenjtalk から得られる発音 or 読みと一致する単語を削除するツール。
+02_ 以降の辞書データはアクセント情報が自動生成されているため、デフォルト辞書のみでも正確な読みが得られる単語は、辞書登録しない方が良いアクセントになると考えられる。
+また、辞書登録せずとも形態素解析で正しい読みを取得できる単語を削除することで、辞書サイズを圧縮し、ゴミデータを除去し、辞書の精度低下を抑える目的もある。
 """
 
 import csv
@@ -12,6 +14,7 @@ from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 from typing import NamedTuple
 
+import jaconv
 import pyopenjtalk
 from tqdm import tqdm
 
@@ -32,8 +35,10 @@ def get_default_reading_pronunciation(text: str) -> tuple[str, str]:
     prons: list[str] = []
     for n in njd_features:
         if n["pos"] == "記号":
-            r = n["string"]
-            p = n["string"]
+            # r = n["string"]
+            # p = n["string"]
+            # 比較用に算出しているだけなので、差異が出やすい記号は読みや発音に含めない
+            continue
         else:
             r = n["read"]
             p = n["pron"]
@@ -43,7 +48,7 @@ def get_default_reading_pronunciation(text: str) -> tuple[str, str]:
             p = p.replace(c, "")
         reads.append(r)
         prons.append(p)
-    return "".join(reads), "".join(prons)
+    return "".join(reads).strip(), "".join(prons).strip()
 
 
 def process_row(row: list[str]) -> ProcessResult:
@@ -53,14 +58,31 @@ def process_row(row: list[str]) -> ProcessResult:
 
     # CSV の形式は 表層形,左文脈ID,右文脈ID,コスト,品詞,品詞細分類1,品詞細分類2,品詞細分類3,活用型,活用形,原形,読み,発音 を想定
     # : は除去してから比較
-    surface = row[0]
-    reading = row[11].replace(":", "")
-    pronunciation = row[12].replace(":", "")
+    # 事前に全角英数字に変換している
+    surface = jaconv.h2z(row[0], ascii=True, digit=True).strip()
+    reading = jaconv.h2z(row[11].replace(":", ""), ascii=True, digit=True).strip()
+    pronunciation = jaconv.h2z(row[12].replace(":", ""), ascii=True, digit=True).strip()
 
     # surface がひらがな・カタカナのみで構成される場合、かつ3文字以上の場合は、pyopenjtalk が苦手とする
     # ひらがな・カタカナ単語の分かち書き強化のために意図的に残す
     if re.match(r"^[\u3040-\u309F\u30A0-\u30FF]{3,}$", surface):
         return ProcessResult(row, False, None)
+
+    # 全角数字のみから構成される単語は読み間違いを防ぐため削除する
+    if re.match(r"^[０-９]+$", surface):
+        return ProcessResult(
+            row, True, f"{surface} → Removed (Full-width numbers only)"
+        )
+
+    # 表層形が1文字の単語は読み間違いを防ぐため削除する
+    if len(surface) == 1:
+        return ProcessResult(row, True, f"{surface} → Removed (Single character)")
+
+    # 全角英数字2文字以下の単語は読み間違いを防ぐため削除する
+    if re.match(r"^[０-９Ａ-Ｚａ-ｚ]{1,2}$", surface):
+        return ProcessResult(
+            row, True, f"{surface} → Removed (Full-width alphanumeric ≤ 2 chars)"
+        )
 
     # デフォルト辞書のみ適用した pyopenjtalk から読みと発音を取得
     default_reading, default_pronunciation = get_default_reading_pronunciation(surface)  # fmt: skip

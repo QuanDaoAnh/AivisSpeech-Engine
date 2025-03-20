@@ -41,7 +41,10 @@ def test_post_import_user_dict_contents(
             "yomi": "テストサン",
         },
     }
-    client.post("/import_user_dict", json=user_dict, params={"override": True})
+    response = client.post(
+        "/import_user_dict", json=user_dict, params={"override": True}
+    )
+    assert response.status_code == 204
     # NOTE: 'GET /user_dict' が正しく機能することを前提とする
     response = client.get("/user_dict", params={})
     assert snapshot_json == response.json()

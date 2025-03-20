@@ -73,7 +73,6 @@ WORKDIR /opt/aivisspeech-engine
 
 # ca-certificates: pyopenjtalk dictionary download
 # build-essential: pyopenjtalk local build
-# libsndfile1: soundfile shared object for arm64
 # ref: https://github.com/VOICEVOX/voicevox_engine/issues/770
 RUN <<EOF
     set -eux
@@ -85,8 +84,7 @@ RUN <<EOF
         cmake \
         ca-certificates \
         build-essential \
-        gosu \
-        libsndfile1
+        gosu
     apt-get clean
     rm -rf /var/lib/apt/lists/*
 
@@ -121,7 +119,7 @@ ARG AIVISSPEECH_ENGINE_VERSION=latest
 RUN sed -i "s/__version__ = \"latest\"/__version__ = \"${AIVISSPEECH_ENGINE_VERSION}\"/" /opt/aivisspeech-engine/voicevox_engine/__init__.py
 RUN sed -i "s/\"version\": \"999\\.999\\.999\"/\"version\": \"${AIVISSPEECH_ENGINE_VERSION}\"/" /opt/aivisspeech-engine/engine_manifest.json
 
-# openjtalk-plus include dictionary in itself, download is not needed
+# pyopenjtalk-plus include dictionary in itself, download is not needed
 
 # Create container start shell
 COPY --chmod=775 <<EOF /entrypoint.sh
