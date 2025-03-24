@@ -6,7 +6,7 @@ import threading
 import time
 from io import BytesIO
 from pathlib import Path
-from typing import Any, Final, Sequence, cast, Union
+from typing import Any, Final, Sequence, cast
 
 import aivmlib
 import jaconv
@@ -31,15 +31,11 @@ from style_bert_vits2.nlp.japanese.mora_list import (
     MORA_PHONEMES_TO_MORA_KATA,
 )
 from style_bert_vits2.nlp.japanese.normalizer import normalize_text
-from style_bert_vits2.nlp.symbols import PUNCTUATIONS, SYMBOLS
+from style_bert_vits2.nlp.symbols import PUNCTUATIONS
 from style_bert_vits2.tts_model import TTSModel
-from style_bert_vits2.models.models_jp_extra import (
-    SynthesizerTrn as SynthesizerTrnJPExtra,
-)
-from style_bert_vits2.models.models import SynthesizerTrn
-from style_bert_vits2.models import utils
 
 from ..aivm_manager import AivmManager
+from ..aivm_infos_repository import AivmInfosRepository
 from ..core.core_adapter import CoreAdapter, DeviceSupport
 from ..dev.core.mock import MockCoreWrapper
 from ..logging import logger
@@ -52,150 +48,7 @@ from ..tts_pipeline.tts_engine import (
     to_flatten_moras,
 )
 from ..utility.path_utility import get_save_dir
-from torch.overrides import TorchFunctionMode
 import torch.utils._device
-
-
-class EmptyInitOnDevice(TorchFunctionMode):
-    def __init__(self, device=None): # type: ignore
-        self.device = device
-
-    def __torch_function__(self, func, types, args=(), kwargs=None): # type: ignore
-        kwargs = kwargs or {}
-        if getattr(func, '__module__', None) == 'torch.nn.init':
-            if 'tensor' in kwargs:
-                return kwargs['tensor']
-            else:
-                return args[0]
-        if self.device is not None and func in torch.utils._device._device_constructors() and kwargs.get('device') is None: # type: ignore
-            kwargs['device'] = self.device
-        return func(*args, **kwargs)
-    
-
-def get_net_g(
-    model_path: str, version: str, device: str, hps: HyperParameters
-) -> Union[SynthesizerTrn, SynthesizerTrnJPExtra]:
-    with EmptyInitOnDevice(device):
-        if version.endswith("JP-Extra"):
-            net_g = SynthesizerTrnJPExtra(
-                n_vocab=len(SYMBOLS),
-                spec_channels=hps.data.filter_length // 2 + 1,
-                segment_size=hps.train.segment_size // hps.data.hop_length,
-                n_speakers=hps.data.n_speakers,
-                # hps.model 以下のすべての値を引数に渡す
-                use_spk_conditioned_encoder=hps.model.use_spk_conditioned_encoder,
-                use_noise_scaled_mas=hps.model.use_noise_scaled_mas,
-                use_mel_posterior_encoder=hps.model.use_mel_posterior_encoder,
-                use_duration_discriminator=hps.model.use_duration_discriminator,
-                use_wavlm_discriminator=hps.model.use_wavlm_discriminator,
-                inter_channels=hps.model.inter_channels,
-                hidden_channels=hps.model.hidden_channels,
-                filter_channels=hps.model.filter_channels,
-                n_heads=hps.model.n_heads,
-                n_layers=hps.model.n_layers,
-                kernel_size=hps.model.kernel_size,
-                p_dropout=hps.model.p_dropout,
-                resblock=hps.model.resblock,
-                resblock_kernel_sizes=hps.model.resblock_kernel_sizes,
-                resblock_dilation_sizes=hps.model.resblock_dilation_sizes,
-                upsample_rates=hps.model.upsample_rates,
-                upsample_initial_channel=hps.model.upsample_initial_channel,
-                upsample_kernel_sizes=hps.model.upsample_kernel_sizes,
-                n_layers_q=hps.model.n_layers_q,
-                use_spectral_norm=hps.model.use_spectral_norm,
-                gin_channels=hps.model.gin_channels,
-                slm=hps.model.slm,
-            ).to(device)
-        else:
-            net_g = SynthesizerTrn(
-                n_vocab=len(SYMBOLS),
-                spec_channels=hps.data.filter_length // 2 + 1,
-                segment_size=hps.train.segment_size // hps.data.hop_length,
-                n_speakers=hps.data.n_speakers,
-                # hps.model 以下のすべての値を引数に渡す
-                use_spk_conditioned_encoder=hps.model.use_spk_conditioned_encoder,
-                use_noise_scaled_mas=hps.model.use_noise_scaled_mas,
-                use_mel_posterior_encoder=hps.model.use_mel_posterior_encoder,
-                use_duration_discriminator=hps.model.use_duration_discriminator,
-                use_wavlm_discriminator=hps.model.use_wavlm_discriminator,
-                inter_channels=hps.model.inter_channels,
-                hidden_channels=hps.model.hidden_channels,
-                filter_channels=hps.model.filter_channels,
-                n_heads=hps.model.n_heads,
-                n_layers=hps.model.n_layers,
-                kernel_size=hps.model.kernel_size,
-                p_dropout=hps.model.p_dropout,
-                resblock=hps.model.resblock,
-                resblock_kernel_sizes=hps.model.resblock_kernel_sizes,
-                resblock_dilation_sizes=hps.model.resblock_dilation_sizes,
-                upsample_rates=hps.model.upsample_rates,
-                upsample_initial_channel=hps.model.upsample_initial_channel,
-                upsample_kernel_sizes=hps.model.upsample_kernel_sizes,
-                n_layers_q=hps.model.n_layers_q,
-                use_spectral_norm=hps.model.use_spectral_norm,
-                gin_channels=hps.model.gin_channels,
-                slm=hps.model.slm,
-            ).to(device)
-    
-    net_g.eval()
-    if model_path.endswith(".pth") or model_path.endswith(".pt"):
-        _ = utils.checkpoints.load_checkpoint(
-            model_path, net_g, None, skip_optimizer=True, device=device
-        )
-    elif model_path.endswith(".safetensors") or model_path.endswith(".aivm"):
-        _ = utils.safetensors.load_safetensors(model_path, net_g, True, device=device)
-    else:
-        raise ValueError(f"Unknown model format: {model_path}")
-    return net_g
-
-
-class StyleBertVITS2Model(TTSModel):
-    def load(self) -> None:
-        self.net_g = get_net_g(
-            model_path=str(self.model_path),
-            version=self.hyper_parameters.version,
-            device=self.device,
-            hps=self.hyper_parameters,
-        )
-
-        # ここからはヌルモデルのロード用パラメータが指定されている場合のみ
-        if self.null_model_params is None:
-            return
-
-        # 推論対象のモデルの重みとヌルモデルの重みをマージ
-        for null_model_info in self.null_model_params.values():
-            null_model_add = get_net_g(
-                model_path=str(null_model_info.path),
-                version=self.hyper_parameters.version,
-                device=self.device,
-                hps=self.hyper_parameters,
-            )
-            # 愚直。もっと上手い方法ありそう
-            params = zip(
-                self.net_g.dec.parameters(), null_model_add.dec.parameters()
-            )
-            for v in params:
-                v[0].data.add_(v[1].data, alpha=float(null_model_info.weight))
-            params = zip(
-                self.net_g.flow.parameters(), null_model_add.flow.parameters()
-            )
-            for v in params:
-                v[0].data.add_(v[1].data, alpha=float(null_model_info.pitch))
-
-            params = zip(
-                self.net_g.enc_p.parameters(), null_model_add.enc_p.parameters()
-            )
-            for v in params:
-                v[0].data.add_(v[1].data, alpha=float(null_model_info.style))
-            # テンポは sdp と dp 二つあるからとりあえずどっちも足す
-            params = zip(
-                self.net_g.sdp.parameters(), null_model_add.sdp.parameters()
-            )
-            for v in params:
-                v[0].data.add_(v[1].data, alpha=float(null_model_info.tempo))
-            params = zip(self.net_g.dp.parameters(), null_model_add.dp.parameters())
-            for v in params:
-                v[0].data.add_(v[1].data, alpha=float(null_model_info.tempo))
 
 
 class StyleBertVITS2TTSEngine(TTSEngine):
@@ -411,7 +264,7 @@ class StyleBertVITS2TTSEngine(TTSEngine):
                 if aivm_info.file_path.suffix == ".aivmx":
                     aivm_metadata = aivmlib.read_aivmx_metadata(f)
                 else:
-                    aivm_metadata = AivmManager.read_aivm_metadata(f)
+                    aivm_metadata = AivmInfosRepository.read_aivm_metadata(f)
                     is_onnx = False
         except aivmlib.AivmValidationError as e:
             logger.error(f"{aivm_info.file_path}: Failed to read AIVM metadata. ({e})")
@@ -442,7 +295,7 @@ class StyleBertVITS2TTSEngine(TTSEngine):
                 onnx_providers=self.onnx_providers,
             )  # fmt: skip
         else:
-            tts_model = StyleBertVITS2Model(
+            tts_model = TTSModel(
                 # 音声合成モデルのパスとして、AIVMX ファイル (ONNX 互換) のパスを指定
                 model_path=aivm_info.file_path,
                 # config_path とあるが、HyperParameters の Pydantic モデルを直接指定できる

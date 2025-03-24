@@ -6,8 +6,9 @@ import hashlib
 import sys
 import threading
 import time
+import json
 from pathlib import Path
-from typing import Final
+from typing import Final, BinaryIO
 
 import aivmlib
 import httpx
@@ -120,6 +121,44 @@ class AivmInfosRepository:
         assert self._installed_aivm_infos is not None
         return self._installed_aivm_infos
 
+    @staticmethod
+    def read_aivm_metadata(aivm_file: BinaryIO) -> aivmlib.AivmMetadata:
+        """
+        AIVM ファイルから AIVM メタデータを読み込む
+
+        Args:
+            aivm_file (BinaryIO): AIVM ファイル
+
+        Returns:
+            AivmMetadata: AIVM メタデータ
+
+        Raises:
+            AivmValidationError: AIVM ファイルのフォーマットが不正・AIVM メタデータのバリデーションに失敗した場合
+        """
+
+        # 引数として受け取った BinaryIO のカーソルを先頭にシーク
+        aivm_file.seek(0)
+
+        # ファイルの内容を読み込む
+        header_size = int.from_bytes(aivm_file.read(8), 'little')
+
+        # 引数として受け取った BinaryIO のカーソルを再度先頭に戻す
+        aivm_file.seek(8)
+
+        # ヘッダー部分を抽出
+        header_bytes = aivm_file.read(header_size)
+        try:
+            header_text = header_bytes.decode('utf-8')
+            header_json = json.loads(header_text)
+        except (UnicodeDecodeError, json.JSONDecodeError):
+            raise aivmlib.AivmValidationError('Failed to decode AIVM metadata. This file is not an AIVM (Safetensors) file.')
+
+        # "__metadata__" キーから AIVM メタデータを取得
+        raw_metadata = header_json.get('__metadata__')
+
+        # バリデーションを行った上で、AivmMetadata オブジェクトを構築して返す
+        return aivmlib.validate_aivm_metadata(raw_metadata)
+    
     def update_model_load_state(self, aivm_uuid: str, is_loaded: bool) -> None:
         """
         音声合成モデルのロード状態を更新する
@@ -249,7 +288,7 @@ class AivmInfosRepository:
         start_time = time.time()
 
         # AIVMX ファイルのインストール先ディレクトリ内に配置されている .aivmx ファイルのパスを取得
-        aivm_file_paths = glob.glob(str(installed_models_dir / "*.aivmx"))
+        aivm_file_paths = glob.glob(str(installed_models_dir / "*.aivmx")) + glob.glob(str(installed_models_dir / "*.aivm"))
 
         # 各 AIVMX ファイルごとに
         aivm_infos: dict[str, AivmInfo] = {}
@@ -267,11 +306,15 @@ class AivmInfosRepository:
             # AIVM メタデータの読み込み
             try:
                 with open(aivm_file_path, mode="rb") as f:
-                    aivm_metadata = aivmlib.read_aivmx_metadata(f)
-                    aivm_manifest = aivm_metadata.manifest
+                    if aivm_file_path.suffix == ".aivmx":
+                        aivm_metadata = aivmlib.read_aivmx_metadata(f)
+                        aivm_manifest = aivm_metadata.manifest
+                    else:
+                        aivm_metadata = AivmInfosRepository.read_aivm_metadata(f)
+                        aivm_manifest = aivm_metadata.manifest
             except aivmlib.AivmValidationError as ex:
                 logger.warning(
-                    f"{aivm_file_path}: Failed to read AIVM metadata:",
+                    f"{aivm_file_path}: Failed to read AIVM/AIVMX metadata:",
                     exc_info=ex,
                 )
                 continue

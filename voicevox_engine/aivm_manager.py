@@ -7,7 +7,6 @@ from typing import BinaryIO, Final
 
 import aivmlib
 import httpx
-import json
 from aivmlib.schemas.aivm_manifest import (
     AivmManifest,
     AivmManifestSpeaker,
@@ -224,44 +223,6 @@ class AivmManager:
             detail=f"スタイル {style_id} は存在しません。",
         )
 
-    @staticmethod
-    def read_aivm_metadata(aivm_file: BinaryIO) -> aivmlib.AivmMetadata:
-        """
-        AIVM ファイルから AIVM メタデータを読み込む
-
-        Args:
-            aivm_file (BinaryIO): AIVM ファイル
-
-        Returns:
-            AivmMetadata: AIVM メタデータ
-
-        Raises:
-            AivmValidationError: AIVM ファイルのフォーマットが不正・AIVM メタデータのバリデーションに失敗した場合
-        """
-
-        # 引数として受け取った BinaryIO のカーソルを先頭にシーク
-        aivm_file.seek(0)
-
-        # ファイルの内容を読み込む
-        header_size = int.from_bytes(aivm_file.read(8), 'little')
-
-        # 引数として受け取った BinaryIO のカーソルを再度先頭に戻す
-        aivm_file.seek(8)
-
-        # ヘッダー部分を抽出
-        header_bytes = aivm_file.read(header_size)
-        try:
-            header_text = header_bytes.decode('utf-8')
-            header_json = json.loads(header_text)
-        except (UnicodeDecodeError, json.JSONDecodeError):
-            raise aivmlib.AivmValidationError('Failed to decode AIVM metadata. This file is not an AIVM (Safetensors) file.')
-
-        # "__metadata__" キーから AIVM メタデータを取得
-        raw_metadata = header_json.get('__metadata__')
-
-        # バリデーションを行った上で、AivmMetadata オブジェクトを構築して返す
-        return aivmlib.validate_aivm_metadata(raw_metadata)
-
     def get_installed_aivm_infos(
         self, force: bool = False, wait_for_update_check: bool = False
     ) -> dict[str, AivmInfo]:
@@ -304,20 +265,24 @@ class AivmManager:
         """
 
         # AIVMX ファイルからから AIVM メタデータを取得
-        extension = "aivmx"
+        extension = "aivm"
+        aivm_manifest = None
         try:
-            aivm_metadata = aivmlib.read_aivmx_metadata(file)
+            aivm_metadata = AivmInfosRepository.read_aivm_metadata(file)
             aivm_manifest = aivm_metadata.manifest
         except aivmlib.AivmValidationError as ex:
+            pass
+        
+        if aivm_manifest is None:
             try:
-                aivm_metadata = aivmlib.read_aivm_metadata(file)
+                aivm_metadata = aivmlib.read_aivmx_metadata(file)
                 aivm_manifest = aivm_metadata.manifest
-                extension = "aivm"
+                extension = "aivmx"
             except aivmlib.AivmValidationError as ex:
-                logger.error(f"AIVMX file is invalid:", exc_info=ex)
+                logger.error(f"AIVM/AIVMX file is invalid:", exc_info=ex)
                 raise HTTPException(
                     status_code=422,
-                    detail=f"指定された AIVMX ファイルの形式が正しくありません。({ex})",
+                    detail=f"指定された AIVM/AIVMX ファイルの形式が正しくありません。({ex})",
                 )
 
         # すでに同一 UUID のファイルがインストール済みの場合、同じファイルを更新する
