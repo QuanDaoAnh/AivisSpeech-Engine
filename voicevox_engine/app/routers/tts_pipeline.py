@@ -1,6 +1,7 @@
 """音声合成機能を提供する API Router"""
 
 import io
+import json
 import zipfile
 import torch
 from typing import Annotated, Self
@@ -28,8 +29,7 @@ from voicevox_engine.tts_pipeline.model import (
     AccentPhrase,
     FrameAudioQuery,
     ParseKanaErrorCode,
-    Score,
-    StyleRequest
+    Score
 )
 from voicevox_engine.aivm_manager import AivmManager
 from voicevox_engine.tts_pipeline.tts_engine import LATEST_VERSION, TTSEngineManager
@@ -83,6 +83,8 @@ def generate_tts_pipeline_router(
 ) -> APIRouter:
     """音声合成 API Router を生成する"""
     router = APIRouter()
+    with open('resources/model_mapping.json', 'r') as f:
+        model_mapping = json.load(f)
 
     @router.post(
         "/audio_query",
@@ -279,9 +281,16 @@ def generate_tts_pipeline_router(
     def synthesis_from_text(
         text: str,
         model_name: str,
-        styles: list[StyleRequest],
         language: Annotated[Languages, Query(description="textの言語")] = Languages.JP,
         length: Annotated[float, Query(description="話速。基準は1で大きくするほど音声は長くなり読み上げが遅まる")] = 1.0,
+        styles:  Annotated[
+            str | SkipJsonSchema[None],
+            Query(description="Styles. Comma separate. Ex: Happy,Surprise"),
+        ] = None,
+        weights:  Annotated[
+            str | SkipJsonSchema[None],
+            Query(description="Style weights. Comma separate. Sum of all weights must be 1.0. Ex: 0.3,0.7"),
+        ] = None,
         core_version: Annotated[
             str | SkipJsonSchema[None],
             Query(description="AivisSpeech Engine ではサポートされていないパラメータです (常に無視されます) 。"),
@@ -310,11 +319,23 @@ def generate_tts_pipeline_router(
             kana=text,  # AivisSpeech Engine では音声合成時に読み上げテキストも必要なため、kana に読み上げテキストをそのまま入れて返す
         )
         
-        style_names = [style.style for style in styles]
+        if styles is None:
+            old_model_data = model_mapping[model_name]
+            model_name = old_model_data['model_name']
+            style_names = [old_model_data['style']]
+            style_weights = [1.0]
+        else:    
+            if weights is None:
+                raise HTTPException(status_code=400, detail='weights must be specify')   
+            style_names = styles.split(',')
+            try:
+                style_weights = [float(weight) for weight in weights.split(',')]
+            except:
+                raise HTTPException(status_code=400, detail='weights must be a list of float with comma separating')
+
         style_ids = aivm_manager.get_style_ids(model_name, style_names)
-        style_weights = [style.weight for style in styles]
         if sum(style_weights) != 1.0:
-            raise HTTPException(status_code=400, detail="Sum of style weights must be 1.0")
+            raise HTTPException(status_code=400, detail="Sum of weights must be 1.0")
 
         wave = None
         for _ in range(4):
@@ -754,7 +775,8 @@ def generate_tts_pipeline_router(
         synthesis_from_text(
             text="音声合成モデルの推論デバイスを返します",
             model_name=model_name,
-            styles=[StyleRequest(style='ノーマル', weight=1.0)],
+            styles='ノーマル',
+            weights='1.0',
             language=Languages.JP
         )
         if i > 2:

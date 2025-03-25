@@ -1,0 +1,282 @@
+{
+    "nakashima_call_happy_en": {
+        "model_name": "nakashima_call_en",
+        "style": "Happy"
+    },
+    "rully_call_surprise_en": {
+        "model_name": "rully_call_en",
+        "style": "Surprise"
+    },
+    "rully_counselor_sympathie": {
+        "model_name": "rully_counselor_jp",
+        "style": "Sympathie"
+    },
+    "yonekura_studio_interviewer_laugh": {
+        "model_name": "yonekura_studio_interviewer_jp",
+        "style": "Laugh"
+    },
+    "show_customer_happy_en": {
+        "model_name": "show_customer_en",
+        "style": "Happy"
+    },
+    "show_customer_neutral": {
+        "model_name": "show_customer_jp",
+        "style": "ノーマル"
+    },
+    "rully_call_sympathie": {
+        "model_name": "rully_call_jp",
+        "style": "Sympathie"
+    },
+    "yonekura_studio_interviewer_happy": {
+        "model_name": "yonekura_studio_interviewer_jp",
+        "style": "Happy"
+    },
+    "nakashima_call_humor": {
+        "model_name": "nakashima_call_jp",
+        "style": "Humor"
+    },
+    "nakashima_counselor_spanning": {
+        "model_name": "nakashima_counselor_jp",
+        "style": "Spanning"
+    },
+    "nakashima_call_sad": {
+        "model_name": "nakashima_call_jp",
+        "style": "Sad"
+    },
+    "rully_counselor_sad": {
+        "model_name": "rully_counselor_jp",
+        "style": "Sad"
+    },
+    "nakashima_call_surprise_en": {
+        "model_name": "nakashima_call_en",
+        "style": "Surprise"
+    },
+    "nakashima_call_spanning_en": {
+        "model_name": "nakashima_call_en",
+        "style": "Spanning"
+    },
+    "rully_call_sympathie_en": {
+        "model_name": "rully_call_en",
+        "style": "Sympathie"
+    },
+    "rully_counselor_humor": {
+        "model_name": "rully_counselor_jp",
+        "style": "Humor"
+    },
+    "rully_counselor_happy": {
+        "model_name": "rully_counselor_jp",
+        "style": "Happy"
+    },
+    "rully_call_spanning": {
+        "model_name": "rully_call_jp",
+        "style": "Spanning"
+    },
+    "show_customer_surprise": {
+        "model_name": "show_customer_jp",
+        "style": "Surprise"
+    },
+    "yonekura_presentator_neutral": {
+        "model_name": "yonekura_presentator_jp",
+        "style": "ノーマル"
+    },
+    "rully_counselor_neutral": {
+        "model_name": "rully_counselor_jp",
+        "style": "ノーマル"
+    },
+    "nakashima_counselor_sympathie": {
+        "model_name": "nakashima_counselor_jp",
+        "style": "Sympathie"
+    },
+    "yonekura_interviewer_neutral": {
+        "model_name": "yonekura_interviewer_jp",
+        "style": "ノーマル"
+    },
+    "kanako_teacher-jp_neutral": {
+        "model_name": "kanako_teacher_jp",
+        "style": "ノーマル"
+    },
+    "nakashima_call_sympathie_en": {
+        "model_name": "nakashima_call_en",
+        "style": "Sympathie"
+    },
+    "show_customer_sad_en": {
+        "model_name": "show_customer_en",
+        "style": "Sad"
+    },
+    "show_customer_anger": {
+        "model_name": "show_customer_jp",
+        "style": "Angry"
+    },
+    "yonekura_studio_presentator_neutral_hightone_merge": {
+        "model_name": "yonekura_studio_presentator_jp",
+        "style": "Hightone"
+    },
+    "rully_call_sad": {
+        "model_name": "rully_call_jp",
+        "style": "Sad"
+    },
+    "rully_call_surprise": {
+        "model_name": "rully_call_jp",
+        "style": "Surprise"
+    },
+    "nakashima_call_neutral": {
+        "model_name": "nakashima_call_jp",
+        "style": "ノーマル"
+    },
+    "rully_call_happy_en": {
+        "model_name": "rully_call_en",
+        "style": "Happy"
+    },
+    "rully_call_humor": {
+        "model_name": "rully_call_jp",
+        "style": "Humor"
+    },
+    "yonekura_interviewer_surprise_en": {
+        "model_name": "yonekura_interviewer_en",
+        "style": "Surprise"
+    },
+    "yonekura_interviewer_sad_en": {
+        "model_name": "yonekura_interviewer_en",
+        "style": "Sad"
+    },
+    "nakashima_counselor_happy": {
+        "model_name": "nakashima_counselor_jp",
+        "style": "Happy"
+    },
+    "yonekura_studio_presentator_neutral_hightone": {
+        "model_name": "yonekura_studio_presentator_jp",
+        "style": "Hightone"
+    },
+    "nakashima_counselor_humor": {
+        "model_name": "nakashima_counselor_jp",
+        "style": "Humor"
+    },
+    "yonekura_presentator_neutral_en": {
+        "model_name": "yonekura_presentator_en",
+        "style": "ノーマル"
+    },
+    "yonekura_interviewer_happy": {
+        "model_name": "yonekura_interviewer_jp",
+        "style": "Happy"
+    },
+    "rully_counselor_surprise": {
+        "model_name": "rully_counselor_jp",
+        "style": "Surprise"
+    },
+    "show_customer_sad": {
+        "model_name": "show_customer_jp",
+        "style": "Sad"
+    },
+    "show_customer_neutral_en": {
+        "model_name": "show_customer_en",
+        "style": "ノーマル"
+    },
+    "show_customer_happy": {
+        "model_name": "show_customer_jp",
+        "style": "Happy"
+    },
+    "rully_call_humor_en": {
+        "model_name": "rully_call_en",
+        "style": "Humor"
+    },
+    "nakashima_call_neutral_en": {
+        "model_name": "nakashima_call_en",
+        "style": "ノーマル"
+    },
+    "nakashima_call_humor_en": {
+        "model_name": "nakashima_call_en",
+        "style": "Humor"
+    },
+    "rully_call_neutral_cleaned": {
+        "model_name": "rully_call_jp",
+        "style": "ノーマル"
+    },
+    "yonekura_interviewer_neutral_en": {
+        "model_name": "yonekura_interviewer_en",
+        "style": "ノーマル"
+    },
+    "nakashima_call_spanning": {
+        "model_name": "nakashima_call_jp",
+        "style": "Spanning"
+    },
+    "yonekura_interviewer_sad": {
+        "model_name": "yonekura_interviewer_jp",
+        "style": "Sad"
+    },
+    "rully_call_happy": {
+        "model_name": "rully_call_jp",
+        "style": "Happy"
+    },
+    "rully_counselor_spanning": {
+        "model_name": "rully_counselor_jp",
+        "style": "Spanning"
+    },
+    "nakashima_counselor_sad": {
+        "model_name": "nakashima_counselor_jp",
+        "style": "Sad"
+    },
+    "nakashima_counselor_neutral": {
+        "model_name": "nakashima_counselor_jp",
+        "style": "ノーマル"
+    },
+    "kanako_teacher-en_neutral": {
+        "model_name": "kanako_teacher_en",
+        "style": "ノーマル"
+    },
+    "nakashima_counselor_surprise": {
+        "model_name": "nakashima_counselor_jp",
+        "style": "Surprise"
+    },
+    "yonekura_studio_interviewer_neutral": {
+        "model_name": "yonekura_studio_interviewer_jp",
+        "style": "ノーマル"
+    },
+    "nakashima_call_sympathie": {
+        "model_name": "nakashima_call_jp",
+        "style": "Sympathie"
+    },
+    "nakashima_call_sad_en": {
+        "model_name": "nakashima_call_en",
+        "style": "Sad"
+    },
+    "fastlabel_male_angry": {
+        "model_name": "fastlabel_male_angry_jp",
+        "style": "ノーマル"
+    },
+    "yonekura_interviewer_surprise": {
+        "model_name": "yonekura_interviewer_jp",
+        "style": "Surprise"
+    },
+    "rully_call_spanning_en": {
+        "model_name": "rully_call_en",
+        "style": "Spanning"
+    },
+    "rully_call_neutral_en": {
+        "model_name": "rully_call_en",
+        "style": "ノーマル"
+    },
+    "yonekura_interviewer_happy_en": {
+        "model_name": "yonekura_interviewer_en",
+        "style": "Happy"
+    },
+    "rully_call_sad_en": {
+        "model_name": "rully_call_en",
+        "style": "Sad"
+    },
+    "nakashima_call_happy": {
+        "model_name": "nakashima_call_jp",
+        "style": "Happy"
+    },
+    "nakashima_call_surprise": {
+        "model_name": "nakashima_call_jp",
+        "style": "Surprise"
+    },
+    "yonekura_studio_presentator_laugh": {
+        "model_name": "yonekura_studio_presentator_jp",
+        "style": "Laugh"
+    },
+    "yonekura_studio_presentator_neutral": {
+        "model_name": "yonekura_studio_presentator_jp",
+        "style": "ノーマル"
+    }
+}

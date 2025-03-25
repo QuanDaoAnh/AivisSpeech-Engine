@@ -117,11 +117,6 @@ class FrameAudioQuery(BaseModel):
     outputStereo: bool = Field(description="音声データをステレオ出力するか否か")
 
 
-class StyleRequest(BaseModel):
-    style: str = Field(description="Style name")
-    weight: float = Field(description="Style weight")
-
-
 class ParseKanaErrorCode(Enum):
     UNKNOWN_TEXT = "判別できない読み仮名があります: {text}"
     ACCENT_TOP = "句頭にアクセントは置けません: {text}"
