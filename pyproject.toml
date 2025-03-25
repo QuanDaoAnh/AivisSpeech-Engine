@@ -107,7 +107,7 @@ onnxruntime-gpu = { version = "^1.20.0", markers = "sys_platform == 'linux' and 
 torch = "2.3.1"
 tiktoken = "^0.8.0"
 sentencepiece = "0.2.0"
-style-bert-vits2 = {git = "https://github.com/QuanDaoAnh/Style-Bert-VITS2.git", rev = "9c1bf909897723373c5b9b36e53ede154f6f7117"}
+style-bert-vits2 = {git = "https://github.com/QuanDaoAnh/Style-Bert-VITS2.git", rev = "a3ee763971f248f59caa2774f8769e85f3e519c1"}
 
 [tool.poetry.group.dev.dependencies]
 pysen = "^0.11.0"

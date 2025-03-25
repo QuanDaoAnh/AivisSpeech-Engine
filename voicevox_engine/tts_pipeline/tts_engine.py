@@ -580,10 +580,11 @@ class TTSEngine:
     def synthesize_wave_without_accent_phrases(
         self, 
         query: AudioQuery,
-        style_id: StyleId,
+        style_ids: list[StyleId],
+        style_weights: list[float],
         language:  Languages
     ) -> NDArray[np.float32]:
-        return self.synthesize_wave(query, style_id)
+        return self.synthesize_wave(query, style_ids[0])
 
     def synthesize_wave(
         self,

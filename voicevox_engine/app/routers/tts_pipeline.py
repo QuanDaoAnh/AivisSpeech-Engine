@@ -29,6 +29,7 @@ from voicevox_engine.tts_pipeline.model import (
     FrameAudioQuery,
     ParseKanaErrorCode,
     Score,
+    StyleRequest
 )
 from voicevox_engine.aivm_manager import AivmManager
 from voicevox_engine.tts_pipeline.tts_engine import LATEST_VERSION, TTSEngineManager
@@ -278,6 +279,7 @@ def generate_tts_pipeline_router(
     def synthesis_from_text(
         text: str,
         model_name: str,
+        styles: list[StyleRequest],
         language: Annotated[Languages, Query(description="textの言語")] = Languages.JP,
         length: Annotated[float, Query(description="話速。基準は1で大きくするほど音声は長くなり読み上げが遅まる")] = 1.0,
         core_version: Annotated[
@@ -305,15 +307,20 @@ def generate_tts_pipeline_router(
             pauseLengthScale=1,
             outputSamplingRate=engine.default_sampling_rate,
             outputStereo=False,
-            # kana=create_kana(accent_phrases),
             kana=text,  # AivisSpeech Engine では音声合成時に読み上げテキストも必要なため、kana に読み上げテキストをそのまま入れて返す
         )
-        style_id = aivm_manager.get_style_id_from_model_name(model_name)
+        
+        style_names = [style.style for style in styles]
+        style_ids = aivm_manager.get_style_ids(model_name, style_names)
+        style_weights = [style.weight for style in styles]
+        if sum(style_weights) != 1.0:
+            raise HTTPException(status_code=400, detail="Sum of style weights must be 1.0")
+
         wave = None
         for _ in range(4):
             try:
                 wave = engine.synthesize_wave_without_accent_phrases(
-                    query, style_id, language
+                    query, style_ids, style_weights, language
                 )
                 break
             except torch.cuda.OutOfMemoryError:
@@ -747,6 +754,7 @@ def generate_tts_pipeline_router(
         synthesis_from_text(
             text="音声合成モデルの推論デバイスを返します",
             model_name=model_name,
+            styles=[StyleRequest(style='ノーマル', weight=1.0)],
             language=Languages.JP
         )
         if i > 2:

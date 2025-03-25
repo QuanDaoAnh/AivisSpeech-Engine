@@ -1,6 +1,6 @@
 """音声合成モデル管理機能を提供する API Router"""
 
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Path, UploadFile
 
@@ -34,12 +34,32 @@ def generate_aivm_models_router(
         summary="インストール済みのすべての音声合成モデルの情報を取得する",
         response_description="インストール済みのすべての音声合成モデルの情報",
     )
-    def get_installed_aivm_infos() -> dict[str, AivmInfo]:
+    def get_installed_aivm_infos() -> dict[str, Any]:
         """
         インストール済みのすべての音声合成モデルの情報を返します。
         """
 
-        return aivm_manager.get_installed_aivm_infos()
+        aivm_infos = aivm_manager.get_installed_aivm_infos()
+        aivm_models = {}
+        for aivm_uuid, aivm_info in aivm_infos.items():
+            styles: list[Any] = []
+            speaker = aivm_info.speakers[0].speaker
+            for style in speaker.styles:
+                styles.append({
+                    'name': style.name,
+                    'id': style.id
+                })
+            aivm_data = {
+                'name': aivm_info.manifest.name,
+                'speaker': {
+                    'name': speaker.name,
+                    'speaker_uuid': speaker.speaker_uuid,
+                    'styles': styles
+                }
+            }
+            aivm_models[aivm_uuid] = aivm_data
+        return aivm_models
+    
 
     @router.post(
         "/install",

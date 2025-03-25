@@ -16,7 +16,7 @@ from fastapi import HTTPException
 
 from voicevox_engine.aivm_infos_repository import AivmInfosRepository
 from voicevox_engine.logging import logger
-from voicevox_engine.metas.Metas import Speaker, SpeakerInfo, StyleId
+from voicevox_engine.metas.Metas import Speaker, SpeakerInfo, StyleId, SpeakerStyle
 from voicevox_engine.metas.MetasStore import Character
 from voicevox_engine.model import AivmInfo
 from voicevox_engine.utility.user_agent_utility import generate_user_agent
@@ -117,16 +117,25 @@ class AivmManager:
         # 話者名でソートしてから返す
         return sorted(speakers, key=lambda x: x.name)
 
-    def get_style_id_from_model_name(self, model_name: str) -> StyleId:
+    def get_style_ids(self, model_name: str, style_names: list[str]) -> list[StyleId]:
         aivm_infos = self.get_installed_aivm_infos()
+        styles: list[SpeakerStyle] = []
         for aivm_info in aivm_infos.values():
             for aivm_info_speaker in aivm_info.speakers:
                 if aivm_info_speaker.speaker.name == model_name:
-                    return aivm_info.speakers[0].speaker.styles[0].id
-        raise HTTPException(
-            status_code=500,
-            detail="model_name does not exist"
-        )
+                    for style in aivm_info.speakers[0].speaker.styles:
+                        styles.append(style)
+        style_ids: list[StyleId] = []
+        for style_name in style_names:
+            for style in styles:
+                if style_name == style.name:
+                    style_ids.append(style.id)
+        if len(style_ids) != len(style_names):
+            raise HTTPException(
+                status_code=400,
+                detail="model_name or style does not exist"
+            )
+        return style_ids
 
     def get_speaker_info(self, speaker_uuid: str) -> SpeakerInfo:
         """
@@ -222,6 +231,54 @@ class AivmManager:
             status_code=404,
             detail=f"スタイル {style_id} は存在しません。",
         )
+
+    def get_aivm_manifests_from_style_ids(
+        self, style_ids: list[StyleId]
+    ) -> tuple[AivmManifest, AivmManifestSpeaker, list[AivmManifestSpeakerStyle]]:
+        """
+        スタイル ID に対応する AivmManifest, AivmManifestSpeaker, AivmManifestSpeakerStyle を取得する
+
+        Parameters
+        ----------
+        style_id : list[StyleId]
+            スタイル ID
+
+        Returns
+        -------
+        aivm_manifest : AivmManifest
+            AIVM マニフェスト
+        aivm_manifest_speaker : AivmManifestSpeaker
+            AIVM マニフェスト内の話者
+        aivm_manifest_styles : 
+            AIVM マニフェスト内のスタイル
+        """
+
+        aivm_manifest_styles: list[AivmManifestSpeakerStyle] = []
+        aivm_manifest = None
+        aivm_manifest_speaker = None
+        aivm_infos = self.get_installed_aivm_infos()
+        for aivm_info in aivm_infos.values():
+            for aivm_info_speaker in aivm_info.speakers:
+                for aivm_info_speaker_style in aivm_info_speaker.speaker.styles:
+                    if aivm_info_speaker_style.id == style_ids[0]:
+                        # ここでスタイル ID が示す音声合成モデルに対応する AivmManifest を特定
+                        aivm_manifest = aivm_info.manifest
+                        for aivm_manifest_speaker in aivm_manifest.speakers:
+                            # ここでスタイル ID が示す話者に対応する AivmManifestSpeaker を特定
+                            if str(aivm_manifest_speaker.uuid) == aivm_info_speaker.speaker.speaker_uuid:
+                                for style_id in style_ids:
+                                    for aivm_manifest_style in aivm_manifest_speaker.styles:
+                                        # ここでスタイル ID が示すスタイルに対応する AivmManifestSpeakerStyle を特定
+                                        local_style_id = self._repository.style_id_to_local_style_id(style_id)
+                                        if aivm_manifest_style.local_id == local_style_id:
+                                            # すべて取得できたので値を返す
+                                            aivm_manifest_styles.append(aivm_manifest_style)
+        if aivm_manifest is None or aivm_manifest_speaker is None or len(aivm_manifest_styles) != len(style_ids):
+            raise HTTPException(
+                status_code=404,
+                detail=f"Style not found",
+            )
+        return aivm_manifest, aivm_manifest_speaker, aivm_manifest_styles
 
     def get_installed_aivm_infos(
         self, force: bool = False, wait_for_update_check: bool = False

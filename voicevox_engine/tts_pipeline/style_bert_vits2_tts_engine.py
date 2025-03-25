@@ -584,7 +584,8 @@ class StyleBertVITS2TTSEngine(TTSEngine):
     def synthesize_wave_without_accent_phrases(
         self,
         query: AudioQuery,
-        style_id: StyleId,
+        style_ids: list[StyleId],
+        style_weights: list[float],
         language: Languages
     ) -> NDArray[np.float32]:
         """
@@ -614,17 +615,17 @@ class StyleBertVITS2TTSEngine(TTSEngine):
 
 
         # スタイル ID に対応する AivmManifest, AivmManifestSpeaker, AivmManifestSpeakerStyle を取得
-        result = self.aivm_manager.get_aivm_manifest_from_style_id(style_id)
+        result = self.aivm_manager.get_aivm_manifests_from_style_ids(style_ids)
         aivm_manifest = result[0]
         aivm_manifest_speaker = result[1]
-        aivm_manifest_speaker_style = result[2]
+        aivm_manifest_speaker_styles = result[2]
         aivm_uuid = str(aivm_manifest.uuid)
         self.tts_model_used_time[aivm_uuid] = time.time()
 
         # 音声合成モデルをロード (初回のみ)
         model = self.load_model(aivm_uuid)
         logger.info(f"Model: {aivm_manifest.name} / Version {aivm_manifest.version}")  # fmt: skip
-        logger.info(f"Speaker: {aivm_manifest_speaker.name} / Style: {aivm_manifest_speaker_style.name}")  # fmt: skip
+        logger.info(f"Speaker: {aivm_manifest_speaker.name} / Style: {str([style.name for style in aivm_manifest_speaker_styles])}")  # fmt: skip
 
         # ローカルな話者 ID・スタイル ID を取得
         ## 現在の Style-Bert-VITS2 の API ではスタイル ID ではなくスタイル名を指定する必要があるため、
@@ -632,31 +633,21 @@ class StyleBertVITS2TTSEngine(TTSEngine):
         ## AIVM マニフェスト記載のスタイル名とハイパーパラメータのスタイル名は必ずしも一致しないため (通常一致するはずだが…) 、
         ## 万が一に備え AIVM マニフェストとハイパーパラメータで共通のスタイル ID からスタイル名を取得する
         local_speaker_id: int = aivm_manifest_speaker.local_id
-        local_style_id: int = aivm_manifest_speaker_style.local_id
-        local_style_name: str | None = None
-        for hps_style_name, hps_style_id in model.hyper_parameters.data.style2id.items():  # fmt: skip
-            if hps_style_id == local_style_id:
-                local_style_name = hps_style_name
-                break
-        if local_style_name is None:
-            raise ValueError(f"Style ID {local_style_id} not found in hyper parameters.")  # fmt: skip
+        local_style_ids: list[int] = [style.local_id for style in aivm_manifest_speaker_styles] 
+        local_style_names: list[str] = []
+        for local_style_id in local_style_ids:
+            local_style_name: str | None = None
+            for hps_style_name, hps_style_id in model.hyper_parameters.data.style2id.items():  # fmt: skip
+                if hps_style_id == local_style_id:
+                    local_style_name = hps_style_name
+                    break
+            if local_style_name is None:
+                raise ValueError(f"Style ID {local_style_id} not found in hyper parameters.")  # fmt: skip
+            local_style_names.append(local_style_name)
 
         # 話速
         ## ref: https://github.com/litagin02/Style-Bert-VITS2/blob/2.4.1/server_editor.py#L314
         length = 1 / max(0.0, query.speedScale)
-
-        # スタイルの強さ
-        ## VOICEVOX では「抑揚」の比率だが、AivisSpeech では声のテンポの緩急を指定する値としている
-        ## intonationScale の基準は 1.0 (0 ~ 2) なので、DEFAULT_STYLE_WEIGHT を基準とした 0 ~ 10 の範囲に変換する
-        if 0.0 <= query.intonationScale <= 1.0:
-            style_weight = query.intonationScale * DEFAULT_STYLE_WEIGHT
-        elif 1.0 < query.intonationScale <= 2.0:
-            style_weight = (
-                DEFAULT_STYLE_WEIGHT
-                + (query.intonationScale - 1.0) * (10.0 - DEFAULT_STYLE_WEIGHT) / 1.0
-            )
-        else:
-            style_weight = DEFAULT_STYLE_WEIGHT
 
         # テンポの緩急 (SDP Ratio)
         ## Style-Bert-VITS2 にも一応「抑揚」パラメータはあるが、pyworld で変換している関係で明確に音質が劣化する上、あまり効果がない
@@ -683,7 +674,7 @@ class StyleBertVITS2TTSEngine(TTSEngine):
             logger.info("Running inference...")
             logger.info(f"Text: {text}")
             logger.info(f"         Speed: {length:.2f} (Input: {query.speedScale:.2f})")
-            logger.info(f"  Style Weight: {style_weight:.2f} (Input: {query.intonationScale:.2f})")  # fmt: skip
+            logger.info(f" Style Weights: {str(style_weights)}")  # fmt: skip
             logger.info(f"Tempo Dynamics: {sdp_ratio:.2f} (Input: {query.tempoDynamicsScale:.2f})")  # fmt: skip
             logger.info(f"         Pitch: {pitch_scale:.2f} (Input: {query.pitchScale:.2f})")  # fmt: skip
             logger.info(f"        Volume: {query.volumeScale:.2f}")
@@ -697,8 +688,8 @@ class StyleBertVITS2TTSEngine(TTSEngine):
                     text=text,
                     language=language,
                     speaker_id=local_speaker_id,
-                    style=local_style_name,
-                    style_weight=style_weight,
+                    styles=local_style_names,
+                    style_weights=style_weights,
                     sdp_ratio=sdp_ratio,
                     length=length,
                     pitch_scale=pitch_scale,
